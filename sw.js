@@ -1,8 +1,15 @@
-// Bump CACHE when shipping changes so installed clients pick up the new shell.
-const CACHE = 'fundusview-v1';
+// Network first (so a new deploy is picked up immediately), cache as the offline fallback.
+const CACHE = 'fundusview-v2';
 const ASSETS = [
   './',
   './index.html',
+  './css/app.css',
+  './js/app.js',
+  './js/util.js',
+  './js/db.js',
+  './js/camera.js',
+  './js/analysis.js',
+  './js/sim.js',
   './manifest.webmanifest',
   './icons/icon-192.png',
   './icons/icon-512.png',
@@ -25,29 +32,13 @@ self.addEventListener('activate', (e) => {
 self.addEventListener('fetch', (e) => {
   const req = e.request;
   if (req.method !== 'GET' || new URL(req.url).origin !== location.origin) return;
-
-  // Pages: network first so a new deploy shows up, cache as offline fallback.
-  if (req.mode === 'navigate') {
-    e.respondWith(
-      fetch(req)
-        .then((res) => {
-          const copy = res.clone();
-          caches.open(CACHE).then((c) => c.put('./index.html', copy));
-          return res;
-        })
-        .catch(() => caches.match('./index.html'))
-    );
-    return;
-  }
-
-  // Static assets: cache first.
+  const key = req.mode === 'navigate' ? './index.html' : req;
   e.respondWith(
-    caches.match(req).then((hit) => hit || fetch(req).then((res) => {
-      if (res.ok) {
-        const copy = res.clone();
-        caches.open(CACHE).then((c) => c.put(req, copy));
-      }
-      return res;
-    }))
+    fetch(req)
+      .then((res) => {
+        if (res.ok) { const copy = res.clone(); caches.open(CACHE).then((c) => c.put(key, copy)); }
+        return res;
+      })
+      .catch(() => caches.match(key).then((hit) => hit || caches.match(req)))
   );
 });
