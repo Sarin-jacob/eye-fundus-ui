@@ -1,0 +1,1258 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#05070a">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="FundusView">
+<meta name="description" content="Smartphone fundus imaging UI demo for a clip-on lens and flash module.">
+<title>FundusView</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<style>
+:root{
+  --bg:#05070a;--panel:#0d1218;--panel-2:#141b23;--line:#1c2631;--line-2:#2a3847;
+  --text:#e7edf3;--muted:#8796a6;--dim:#5b6878;
+  --accent:#2dd4bf;--accent-ink:#03201c;--ok:#34d399;--warn:#fbbf24;--bad:#f87171;
+  --st:env(safe-area-inset-top,0px);--sb:env(safe-area-inset-bottom,0px);
+  --sl:env(safe-area-inset-left,0px);--sr:env(safe-area-inset-right,0px);
+  --mono:ui-monospace,"SF Mono",Menlo,Consolas,"Roboto Mono",monospace;
+  color-scheme:dark;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+[hidden]{display:none!important}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--text)}
+body{position:fixed;inset:0;overflow:hidden;font:15px/1.4 -apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,system-ui,sans-serif;
+  -webkit-user-select:none;user-select:none;overscroll-behavior:none;-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer;touch-action:manipulation}
+input{font:inherit;color:inherit}
+svg.i{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
+
+.screen{position:absolute;inset:0;display:none;flex-direction:column;padding:var(--st) var(--sr) 0 var(--sl)}
+.screen.active{display:flex;animation:fade .25s ease}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+
+/* ---------- shared ---------- */
+.appbar{display:flex;align-items:center;gap:10px;padding:14px 16px 10px}
+.brand{display:flex;align-items:center;gap:10px;flex:1;min-width:0}
+.brand b{display:block;font-size:17px;letter-spacing:.2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.brand small{display:block;color:var(--muted);font-size:12px}
+.logo{width:34px;height:34px;flex:none}
+.icon-btn{width:42px;height:42px;border-radius:12px;display:grid;place-items:center;background:var(--panel);border:1px solid var(--line);position:relative;flex:none}
+.icon-btn:active{background:var(--panel-2)}
+.badge{position:absolute;top:-5px;right:-5px;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--accent);color:var(--accent-ink);font-size:11px;font-weight:700;display:grid;place-items:center}
+.scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:4px 16px 20px;display:flex;flex-direction:column;gap:14px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px}
+.card-h{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;font-size:12px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);font-weight:650}
+.pill{font-size:12px;letter-spacing:0;text-transform:none;padding:4px 10px;border-radius:999px;background:var(--panel-2);border:1px solid var(--line-2);color:var(--muted);display:inline-flex;align-items:center;gap:6px;font-weight:600}
+.pill::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}
+.pill.ok{color:var(--ok);border-color:rgba(52,211,153,.35);background:rgba(52,211,153,.08)}
+.pill.busy{color:var(--warn);border-color:rgba(251,191,36,.35)}
+.pill.busy::before{animation:blink .8s infinite}
+@keyframes blink{50%{opacity:.15}}
+.btn{height:48px;border-radius:12px;padding:0 16px;font-weight:650;display:inline-flex;align-items:center;justify-content:center;gap:8px;background:var(--panel-2);border:1px solid var(--line-2);width:100%}
+.btn:active{filter:brightness(1.2)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:transparent}
+.btn:disabled{opacity:.38;pointer-events:none}
+.btn.big{height:56px;font-size:16px;border-radius:14px}
+.btn-row{display:flex;gap:10px}
+.field{display:block;margin-bottom:14px}
+.field:last-child{margin-bottom:0}
+.field>span{display:block;font-size:12.5px;color:var(--muted);margin-bottom:6px}
+.field input{width:100%;height:46px;border-radius:12px;border:1px solid var(--line-2);background:var(--bg);padding:0 14px;outline:none;-webkit-user-select:text;user-select:text;font-size:16px}
+.field input:focus{border-color:var(--accent)}
+.seg{display:flex;background:var(--bg);border:1px solid var(--line-2);border-radius:12px;padding:3px;gap:3px}
+.seg button{flex:1;height:38px;border-radius:9px;font-size:14px;color:var(--muted);font-weight:550;white-space:nowrap;padding:0 8px}
+.seg button.on{background:var(--panel-2);color:var(--text);box-shadow:inset 0 0 0 1px var(--line-2)}
+.seg button.on b{color:var(--accent)}
+.specs{margin:0;display:grid;grid-template-columns:auto 1fr;gap:5px 12px;font-size:13px}
+.specs dt{color:var(--muted)}
+.specs dd{margin:0;font-family:var(--mono);font-size:12.5px;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bottom{padding:12px 16px calc(12px + var(--sb));border-top:1px solid var(--line);background:var(--bg)}
+.hint{font-size:12.5px;color:var(--muted);text-align:center;margin-top:8px}
+
+/* ---------- home ---------- */
+.dev{display:flex;gap:16px;align-items:center;margin-bottom:16px}
+.dev-art{width:78px;height:100px;flex:none}
+.dev-art .led{fill:#2a3847;transition:fill .3s}
+.dev-art.on .led{fill:var(--warn)}
+.dev-art .glass{transition:opacity .3s;opacity:.35}
+.dev-art.on .glass{opacity:1}
+.dev .specs{flex:1;min-width:0}
+.recent{display:flex;gap:8px;margin-top:2px}
+.recent img{width:54px;height:54px;border-radius:50%;background:#000;border:1px solid var(--line-2)}
+.recent .more{width:54px;height:54px;border-radius:50%;display:grid;place-items:center;border:1px dashed var(--line-2);color:var(--muted);font-size:13px}
+.stat-row{display:flex;gap:10px;margin-bottom:12px}
+.stat{flex:1;background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+.stat b{display:block;font-size:22px;font-family:var(--mono);font-weight:500}
+.stat small{color:var(--muted);font-size:12px}
+.install{display:flex;gap:12px;align-items:center}
+.install p{margin:0;flex:1;font-size:13px;color:var(--muted)}
+.install .btn{width:auto}
+
+/* ---------- capture ---------- */
+#capture{background:#000}
+.capbar{display:flex;align-items:center;gap:8px;padding:10px 12px 6px}
+.eye-chip{height:36px;min-width:54px;border-radius:10px;background:var(--accent);color:var(--accent-ink);font-weight:800;letter-spacing:.06em;font-size:15px}
+.cap-pt{min-width:0;flex:1}
+.cap-pt b{display:block;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cap-pt small{display:block;color:var(--muted);font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chip{height:34px;padding:0 12px;border-radius:10px;background:var(--panel);border:1px solid var(--line-2);font-size:13px;font-weight:650;display:inline-flex;align-items:center;gap:6px;white-space:nowrap;flex:none}
+.chip.on{border-color:var(--accent);color:var(--accent);background:rgba(45,212,191,.08)}
+.chip.danger{color:var(--bad);border-color:rgba(248,113,113,.4)}
+.chip.ir{color:#c4b5fd;border-color:rgba(196,181,253,.45)}
+.devmini{display:flex;align-items:center;gap:3px;font-family:var(--mono);font-size:11.5px;color:var(--muted);flex:none}
+.devmini svg{width:16px;height:16px}
+.stage{flex:1;min-height:0;overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:4px 12px}
+.vp-wrap{display:flex;align-items:center;gap:14px}
+.viewport{position:relative;width:var(--vp,300px);height:var(--vp,300px);border-radius:50%;overflow:hidden;background:#000;flex:none;touch-action:none;
+  box-shadow:0 0 0 1px #1c2631,0 0 0 7px #080b0f,0 0 0 8px #1c2631;transition:box-shadow .25s}
+.viewport.ready{box-shadow:0 0 0 1px #1c2631,0 0 0 7px #080b0f,0 0 0 9px var(--ok),0 0 28px rgba(52,211,153,.25)}
+.viewport canvas,.viewport video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:50%}
+.viewport video{display:none}
+.viewport.cam video{display:block}
+.viewport.cam canvas{display:none}
+.reticle{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.reticle #rDot{transition:fill .2s}
+.vp-tag{position:absolute;left:50%;transform:translateX(-50%);font:600 10px/1 var(--mono);letter-spacing:.12em;color:rgba(255,255,255,.55);pointer-events:none;white-space:nowrap}
+.vp-tag.top{top:9%}
+.vp-tag.bot{bottom:9%}
+.zcol{display:flex;flex-direction:column;align-items:center;gap:6px;font:600 9.5px/1 var(--mono);letter-spacing:.1em;color:var(--dim);touch-action:none;padding:4px 6px;cursor:ns-resize}
+.zbar{width:10px;height:calc(var(--vp,300px)*.62);border-radius:5px;background:#0d1218;border:1px solid var(--line-2);position:relative}
+.zbar .zone{position:absolute;left:-1px;right:-1px;top:43.75%;height:12.5%;background:rgba(52,211,153,.2);border:1px solid rgba(52,211,153,.55);border-radius:3px}
+.zbar .zmark{position:absolute;left:50%;width:22px;height:4px;margin:-2px 0 0 -11px;border-radius:2px;background:var(--warn);top:50%;box-shadow:0 0 0 2px #000}
+.zbar .zmark.ok{background:var(--ok)}
+.status{display:flex;align-items:center;gap:8px;height:36px;padding:0 16px;border-radius:999px;background:rgba(13,18,24,.92);border:1px solid var(--line-2);font-weight:650;font-size:14px;transition:color .2s,border-color .2s;white-space:nowrap}
+.status i{width:8px;height:8px;border-radius:50%;background:currentColor}
+.status.warn{color:var(--warn)}
+.status.ok{color:var(--ok);border-color:rgba(52,211,153,.5)}
+.status.ok i{animation:blink .9s infinite}
+.status.bad{color:var(--bad);border-color:rgba(248,113,113,.45)}
+.status.info{color:var(--muted)}
+.readouts{display:flex;gap:14px;font-family:var(--mono);font-size:11.5px;color:var(--dim);flex-wrap:wrap;justify-content:center}
+.readouts b{color:var(--text);font-weight:500}
+.controls{position:relative;padding:8px 16px calc(14px + var(--sb));display:flex;flex-direction:column;gap:12px}
+.focus-row{display:flex;align-items:center;gap:10px}
+.focus-row label{font-size:11px;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;font-weight:650}
+.focus-row output{font-family:var(--mono);font-size:13px;min-width:66px;text-align:right}
+input[type=range]{-webkit-appearance:none;appearance:none;flex:1;min-width:0;height:34px;background:transparent;margin:0}
+input[type=range]::-webkit-slider-runnable-track{height:22px;border-radius:6px;border:1px solid var(--line-2);
+  background:repeating-linear-gradient(90deg,#2a3847 0 1px,transparent 1px 10%) center/100% 8px no-repeat,#0a0e13}
+input[type=range]::-moz-range-track{height:22px;border-radius:6px;border:1px solid var(--line-2);
+  background:repeating-linear-gradient(90deg,#2a3847 0 1px,transparent 1px 10%) center/100% 8px no-repeat,#0a0e13}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:8px;height:30px;margin-top:-5px;border-radius:3px;background:var(--accent);box-shadow:0 0 0 3px rgba(45,212,191,.25)}
+input[type=range]::-moz-range-thumb{width:8px;height:30px;border:0;border-radius:3px;background:var(--accent)}
+.toggles{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;margin:0 -16px;padding:0 16px}
+.toggles::-webkit-scrollbar{display:none}
+.shutter-row{display:flex;align-items:center;justify-content:space-between;padding:0 6px}
+.thumb{width:54px;height:54px;border-radius:50%;background:#0d1218 center/cover no-repeat;border:2px solid var(--line-2)}
+.shutter{width:80px;height:80px;border-radius:50%;display:grid;place-items:center;position:relative}
+.shutter svg{position:absolute;inset:0;width:100%;height:100%;transform:rotate(-90deg)}
+.shutter .track{fill:none;stroke:#e7edf3;stroke-width:4}
+.shutter .prog{fill:none;stroke:var(--ok);stroke-width:4;stroke-linecap:round;transition:stroke .2s}
+.shutter span{width:62px;height:62px;border-radius:50%;background:#e7edf3;transition:transform .1s,background .2s}
+.shutter:active span{transform:scale(.9)}
+.shutter.ready .track{stroke:var(--ok)}
+.shutter.ready span{background:var(--ok)}
+.shutter.locked{opacity:.45}
+.flash{position:fixed;inset:0;background:#fff;opacity:0;pointer-events:none;z-index:60}
+.flash.go{animation:flash .5s ease-out}
+@keyframes flash{0%{opacity:0}6%{opacity:.96}100%{opacity:0}}
+.post{position:absolute;left:12px;right:12px;bottom:calc(12px + var(--sb));background:var(--panel);border:1px solid var(--line-2);border-radius:18px;padding:12px;
+  transform:translateY(140%);transition:transform .35s cubic-bezier(.2,.8,.2,1);z-index:5;box-shadow:0 -10px 40px rgba(0,0,0,.6)}
+.post.show{transform:none}
+.post-top{display:flex;gap:12px;align-items:center;margin-bottom:12px}
+.post-top img{width:64px;height:64px;border-radius:50%;background:#000}
+.post-top b{display:block;font-size:15px}
+.post-top small{color:var(--muted);font-size:12.5px}
+.post .btn{height:44px;font-size:14px}
+
+/* ---------- review ---------- */
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:12px}
+.shot{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:10px;text-align:left;display:block;width:100%}
+.shot img{width:100%;aspect-ratio:1;border-radius:50%;display:block;background:#000}
+.shot .meta{display:flex;justify-content:space-between;align-items:center;margin-top:8px;font-size:13px;font-weight:600}
+.shot small{display:block;color:var(--muted);font-size:11.5px;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.q{font:600 11px/1 var(--mono);padding:4px 6px;border-radius:6px}
+.q.good{color:var(--ok);background:rgba(52,211,153,.12)}
+.q.fair{color:var(--warn);background:rgba(251,191,36,.12)}
+.q.poor{color:var(--bad);background:rgba(248,113,113,.12)}
+.q.na{color:var(--muted);background:var(--panel-2)}
+.empty{text-align:center;color:var(--muted);padding:60px 20px}
+.empty svg{width:56px;height:56px;opacity:.5;margin-bottom:10px}
+.tabs{margin:0 16px 12px}
+.viewer{position:fixed;inset:0;background:#000;z-index:20;display:none;flex-direction:column;padding:var(--st) var(--sr) var(--sb) var(--sl)}
+.viewer.show{display:flex;animation:fade .2s}
+.v-stage{flex:1;min-height:0;display:grid;place-items:center;overflow:hidden;padding:8px}
+.v-stage canvas{max-width:100%;max-height:100%;aspect-ratio:1;transition:transform .25s}
+.v-stage canvas.zoom{transform:scale(2.2)}
+.v-tools{padding:12px 16px 16px;display:flex;flex-direction:column;gap:14px;max-width:640px;width:100%;margin:0 auto}
+
+/* ---------- sheet / toast ---------- */
+.scrim{position:fixed;inset:0;background:rgba(0,0,0,.55);opacity:0;pointer-events:none;transition:opacity .25s;z-index:30}
+.scrim.show{opacity:1;pointer-events:auto}
+.sheet{position:fixed;left:0;right:0;bottom:0;max-height:88%;overflow-y:auto;background:var(--panel);border-top:1px solid var(--line-2);border-radius:20px 20px 0 0;
+  padding:8px 18px calc(20px + var(--sb));transform:translateY(105%);transition:transform .32s cubic-bezier(.2,.8,.2,1);z-index:31;max-width:560px;margin:0 auto}
+.sheet.show{transform:none}
+.grab{width:40px;height:5px;border-radius:3px;background:var(--line-2);margin:4px auto 10px}
+.sheet-h{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}
+.sheet-h b{font-size:17px}
+.row{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:13px 0;border-bottom:1px solid var(--line)}
+.row.col{flex-direction:column;align-items:stretch;gap:10px}
+.row .lbl b{display:block;font-weight:550;font-size:15px}
+.row .lbl small{display:block;color:var(--muted);font-size:12px;margin-top:2px}
+.row .lbl span{float:right;font-family:var(--mono);color:var(--accent);font-size:13px}
+.switch{width:50px;height:30px;border-radius:15px;background:var(--line-2);position:relative;transition:background .2s;flex:none}
+.switch::after{content:"";position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:50%;background:#fff;transition:transform .2s}
+.switch[aria-pressed=true]{background:var(--accent)}
+.switch[aria-pressed=true]::after{transform:translateX(20px)}
+.about{font-size:12px;color:var(--dim);text-align:center;margin:16px 0 0}
+.toast{position:fixed;left:50%;top:calc(var(--st) + 12px);transform:translate(-50%,-180%);background:var(--panel-2);border:1px solid var(--line-2);color:var(--text);
+  padding:10px 16px;border-radius:12px;font-size:14px;font-weight:550;z-index:70;transition:transform .3s cubic-bezier(.2,.8,.2,1);max-width:calc(100% - 32px);box-shadow:0 8px 30px rgba(0,0,0,.5)}
+.toast.show{transform:translate(-50%,0)}
+
+/* landscape phones: controls to the side */
+@media (orientation:landscape) and (max-height:560px){
+  #capture.active{display:grid;grid-template:"bar bar" auto "stage ctl" 1fr / 1fr minmax(280px,38%)}
+  .capbar{grid-area:bar}
+  .stage{grid-area:stage;flex-direction:column}
+  .controls{grid-area:ctl;justify-content:center;padding-bottom:calc(10px + var(--sb))}
+  .post{left:auto;width:min(420px,60%)}
+}
+@media (min-width:720px){ .scroll{max-width:620px;width:100%;margin:0 auto} .bottom>*{max-width:588px;margin-left:auto;margin-right:auto} }
+</style>
+</head>
+<body>
+
+<!-- ======================= HOME ======================= -->
+<section id="home" class="screen active">
+  <header class="appbar">
+    <div class="brand">
+      <svg class="logo" viewBox="0 0 34 34"><defs><radialGradient id="lg" cx=".4" cy=".5" r=".6"><stop offset="0" stop-color="#8e2a0e"/><stop offset=".6" stop-color="#d0602a"/><stop offset="1" stop-color="#5a1a08"/></radialGradient></defs><circle cx="17" cy="17" r="15.5" fill="none" stroke="#2dd4bf" stroke-width="2"/><circle cx="17" cy="17" r="12" fill="url(#lg)"/><circle cx="22" cy="16.6" r="2.2" fill="#ffe2a6"/></svg>
+      <div><b>FundusView</b><small>Portable fundus imaging</small></div>
+    </div>
+    <button class="icon-btn" id="homeSettings" aria-label="Settings"><svg class="i" viewBox="0 0 24 24"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/><circle cx="9" cy="6" r="2" fill="#0d1218"/><circle cx="15" cy="12" r="2" fill="#0d1218"/><circle cx="7" cy="18" r="2" fill="#0d1218"/></svg></button>
+    <button class="icon-btn" id="homeGallery" aria-label="Captures"><svg class="i" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="9" cy="9" r="2"/><path d="M21 15l-5-5L5 21"/></svg><span class="badge" id="galBadge" hidden>0</span></button>
+  </header>
+
+  <main class="scroll">
+    <div class="card install" id="installCard" hidden>
+      <p id="installText">Install FundusView for full-screen capture.</p>
+      <button class="btn primary" id="installBtn" hidden>Install</button>
+    </div>
+
+    <div class="card">
+      <div class="card-h"><span>Lens module</span><span class="pill" id="devPill">Disconnected</span></div>
+      <div class="dev">
+        <svg class="dev-art" id="devArt" viewBox="0 0 78 100">
+          <rect x="16" y="4" width="54" height="92" rx="10" fill="#141b23" stroke="#2a3847" stroke-width="1.5"/>
+          <rect x="6" y="10" width="46" height="36" rx="8" fill="#0a0e12" stroke="#2a3847" stroke-width="1.5"/>
+          <circle cx="29" cy="28" r="14" fill="#05070a" stroke="#2dd4bf" stroke-width="1.5"/>
+          <circle class="glass" cx="29" cy="28" r="8.5" fill="#1b3b52"/>
+          <circle class="glass" cx="26" cy="25" r="2.4" fill="#9fd8ff" opacity=".7"/>
+          <circle class="led" cx="29" cy="15.5" r="1.6"/><circle class="led" cx="41.5" cy="28" r="1.6"/><circle class="led" cx="29" cy="40.5" r="1.6"/><circle class="led" cx="16.5" cy="28" r="1.6"/>
+          <rect x="30" y="80" width="26" height="4" rx="2" fill="#2a3847"/>
+        </svg>
+        <dl class="specs">
+          <dt>Model</dt><dd id="spModel">—</dd>
+          <dt>Optics</dt><dd id="spOptics">—</dd>
+          <dt>Light</dt><dd id="spLight">—</dd>
+          <dt>Battery</dt><dd id="spBatt">—</dd>
+          <dt>Firmware</dt><dd id="spFw">—</dd>
+        </dl>
+      </div>
+      <div class="btn-row">
+        <button class="btn" id="btnTestFlash" disabled>Test flash</button>
+        <button class="btn primary" id="btnConnect">Connect</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-h"><span>Patient</span></div>
+      <label class="field"><span>Patient ID</span><input id="pid" placeholder="Auto-generated if empty" autocomplete="off" autocapitalize="characters" spellcheck="false"></label>
+      <label class="field"><span>Name (optional)</span><input id="pname" placeholder="—" autocomplete="off" spellcheck="false"></label>
+      <div class="field"><span>Eye</span>
+        <div class="seg" id="eyeSeg"><button data-v="OD"><b>OD</b> · Right</button><button data-v="OS"><b>OS</b> · Left</button></div>
+      </div>
+      <div class="field"><span>Pupil</span>
+        <div class="seg" id="pupilSeg"><button data-v="non">Non-mydriatic</button><button data-v="dil">Dilated</button></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-h"><span>Session</span><button class="pill" id="openReview">View all</button></div>
+      <div class="stat-row">
+        <div class="stat"><b id="stOD">0</b><small>OD images</small></div>
+        <div class="stat"><b id="stOS">0</b><small>OS images</small></div>
+        <div class="stat"><b id="stQ">—</b><small>Avg quality</small></div>
+      </div>
+      <div class="recent" id="recent"></div>
+    </div>
+  </main>
+
+  <footer class="bottom">
+    <button class="btn primary big" id="btnStart" disabled>Start examination</button>
+    <div class="hint" id="startHint">Connect the lens module to begin</div>
+  </footer>
+</section>
+
+<!-- ======================= CAPTURE ======================= -->
+<section id="capture" class="screen">
+  <header class="capbar">
+    <button class="icon-btn" id="capBack" aria-label="Back"><svg class="i" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg></button>
+    <button class="eye-chip" id="eyeChip">OD</button>
+    <div class="cap-pt"><b id="capPid">—</b><small id="capMeta">—</small></div>
+    <button class="chip ir" id="modeChip">IR</button>
+    <div class="devmini"><svg class="i" viewBox="0 0 24 24"><polyline points="6.5 6.5 17.5 17.5 12 23 12 1 17.5 6.5 6.5 17.5"/></svg><span id="capBatt">—</span></div>
+  </header>
+
+  <div class="stage">
+    <div class="vp-wrap">
+      <div class="viewport" id="viewport">
+        <canvas id="view"></canvas>
+        <video id="cam" playsinline muted autoplay></video>
+        <svg class="reticle" viewBox="-100 -100 200 200">
+          <g id="rGrid" stroke="#fff" stroke-width=".35" opacity=".2" fill="none">
+            <line x1="-100" y1="-50" x2="100" y2="-50"/><line x1="-100" y1="50" x2="100" y2="50"/>
+            <line x1="-50" y1="-100" x2="-50" y2="100"/><line x1="50" y1="-100" x2="50" y2="100"/>
+            <circle r="50"/>
+          </g>
+          <circle r="97" fill="none" stroke="rgba(255,255,255,.2)" stroke-width="1"/>
+          <g stroke="rgba(255,255,255,.55)" stroke-width="1.2">
+            <line x1="0" y1="-97" x2="0" y2="-87"/><line x1="0" y1="97" x2="0" y2="87"/>
+            <line x1="-97" y1="0" x2="-87" y2="0"/><line x1="97" y1="0" x2="87" y2="0"/>
+          </g>
+          <g stroke="rgba(255,255,255,.75)" stroke-width=".9">
+            <line x1="-16" y1="0" x2="-11" y2="0"/><line x1="11" y1="0" x2="16" y2="0"/>
+            <line x1="0" y1="-16" x2="0" y2="-11"/><line x1="0" y1="11" x2="0" y2="16"/>
+          </g>
+          <circle id="rTol" r="9" fill="none" stroke="rgba(52,211,153,.7)" stroke-width=".9" stroke-dasharray="2 2"/>
+          <circle id="rDot" r="3.2" fill="#fbbf24" stroke="#000" stroke-width=".6"/>
+        </svg>
+        <div class="vp-tag top" id="tagTop">IR 850 nm</div>
+        <div class="vp-tag bot">45° FOV</div>
+      </div>
+      <div class="zcol" id="zcol" aria-label="Working distance">
+        <span>FAR</span>
+        <div class="zbar"><div class="zone"></div><div class="zmark" id="zmark"></div></div>
+        <span>NEAR</span>
+      </div>
+    </div>
+    <div class="status info" id="status"><i></i><span>Initialising…</span></div>
+    <div class="readouts">
+      <span>X <b id="roX">—</b></span><span>Y <b id="roY">—</b></span><span>WD <b id="roZ">—</b></span><span>ΔF <b id="roF">—</b></span>
+    </div>
+  </div>
+
+  <div class="controls">
+    <div class="focus-row">
+      <label for="focus">Focus</label>
+      <input type="range" id="focus" min="-15" max="15" step="0.25" value="0">
+      <output id="focusOut">+0.00 D</output>
+      <button class="chip" id="btnAF">AF</button>
+    </div>
+    <div class="toggles">
+      <button class="chip" id="tAuto">Auto capture</button>
+      <button class="chip" id="tFix">Fixation · Central</button>
+      <button class="chip" id="tFlash">Flash 70%</button>
+      <button class="chip" id="tAssist">Assist</button>
+    </div>
+    <div class="shutter-row">
+      <button class="thumb" id="lastThumb" aria-label="Review captures"></button>
+      <button class="shutter" id="shutter" aria-label="Capture">
+        <svg viewBox="0 0 80 80"><circle class="track" cx="40" cy="40" r="37"/><circle class="prog" id="shutProg" cx="40" cy="40" r="37" stroke-dasharray="232.5" stroke-dashoffset="232.5"/></svg>
+        <span></span>
+      </button>
+      <button class="icon-btn" id="capSettings" aria-label="Settings"><svg class="i" viewBox="0 0 24 24"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/><circle cx="9" cy="6" r="2" fill="#0d1218"/><circle cx="15" cy="12" r="2" fill="#0d1218"/><circle cx="7" cy="18" r="2" fill="#0d1218"/></svg></button>
+    </div>
+
+    <div class="post" id="post">
+      <div class="post-top">
+        <img id="postImg" alt="">
+        <div><b id="postTitle">Captured</b><small id="postMeta"></small></div>
+      </div>
+      <div class="btn-row">
+        <button class="btn" id="pRetake">Retake</button>
+        <button class="btn" id="pNext">Capture OS</button>
+        <button class="btn primary" id="pReview">Review</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ======================= REVIEW ======================= -->
+<section id="review" class="screen">
+  <header class="appbar">
+    <button class="icon-btn" id="revBack" aria-label="Back"><svg class="i" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg></button>
+    <div class="brand"><div><b>Captures</b><small id="revSub">0 images</small></div></div>
+  </header>
+  <div class="seg tabs" id="revTabs"><button data-v="all">All</button><button data-v="OD">OD · Right</button><button data-v="OS">OS · Left</button></div>
+  <main class="scroll">
+    <div class="grid" id="grid"></div>
+    <div class="empty" id="empty" hidden>
+      <svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/></svg>
+      <div>No captures yet</div>
+    </div>
+  </main>
+</section>
+
+<div class="viewer" id="viewer">
+  <header class="appbar">
+    <button class="icon-btn" id="vClose" aria-label="Close"><svg class="i" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    <div class="brand"><div><b id="vTitle">—</b><small id="vSub">—</small></div></div>
+    <button class="icon-btn" id="vShare" aria-label="Share or save"><svg class="i" viewBox="0 0 24 24"><path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg></button>
+    <button class="icon-btn" id="vDel" aria-label="Delete"><svg class="i" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6m3 0V4a1 1 0 011-1h6a1 1 0 011 1v2"/></svg></button>
+  </header>
+  <div class="v-stage"><canvas id="vCanvas" width="1024" height="1024"></canvas></div>
+  <div class="v-tools">
+    <div class="seg" id="vFilter"><button data-v="color">Color</button><button data-v="redfree">Red-free</button><button data-v="enhance">Enhance</button></div>
+    <dl class="specs" id="vSpecs"></dl>
+  </div>
+</div>
+
+<!-- ======================= SETTINGS ======================= -->
+<div class="scrim" id="scrim"></div>
+<div class="sheet" id="sheet" role="dialog" aria-label="Capture settings">
+  <div class="grab"></div>
+  <div class="sheet-h"><b>Capture settings</b><button class="chip" id="sheetDone">Done</button></div>
+  <div class="row col">
+    <div class="lbl"><b>Image source</b><small>Simulated retina, or the phone's rear camera through the lens module</small></div>
+    <div class="seg" id="setSource"><button data-v="sim">Simulated</button><button data-v="camera">Phone camera</button></div>
+  </div>
+  <div class="row"><div class="lbl"><b>Alignment assist</b><small>Demo: simulates the operator settling onto the pupil</small></div><button class="switch" id="setAssist"></button></div>
+  <div class="row"><div class="lbl"><b>Auto capture</b><small>Fire the flash once aligned and in focus</small></div><button class="switch" id="setAuto"></button></div>
+  <div class="row col">
+    <div class="lbl"><b>Flash intensity <span id="setFlashOut">70%</span></b><small>White LED on the lens module · 70% is nominal</small></div>
+    <input type="range" id="setFlash" min="10" max="100" step="5">
+  </div>
+  <div class="row col">
+    <div class="lbl"><b>Fixation target</b><small>Internal fixation LED position</small></div>
+    <div class="seg" id="setFix"><button data-v="central">Central</button><button data-v="macula">Macula</button><button data-v="disc">Disc</button></div>
+  </div>
+  <div class="row"><div class="lbl"><b>Reticle grid</b></div><button class="switch" id="setGrid"></button></div>
+  <div class="row"><div class="lbl"><b>Shutter sound</b></div><button class="switch" id="setSound"></button></div>
+  <div class="row"><div class="lbl"><b>Stored captures</b><small id="storeInfo">—</small></div><button class="chip danger" id="setClear">Clear all</button></div>
+  <p class="about">FundusView v0.1 · UI demo — not a medical device.</p>
+</div>
+
+<div class="flash" id="flash"></div>
+<div class="toast" id="toast"></div>
+
+<script>
+(() => {
+'use strict';
+
+/* ------------------------------------------------------------------ utils */
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const lerp = (a, b, t) => a + (b - a) * t;
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+const store = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch (e) { return false; } },
+};
+const pick = (o, keys) => { const r = {}; for (const k of keys) if (o && k in o) r[k] = o[k]; return r; };
+const fmtD = (v) => (v >= 0 ? '+' : '−') + Math.abs(v).toFixed(2) + ' D';
+const fmtMM = (v) => (v >= 0 ? '+' : '−') + Math.abs(v).toFixed(2);
+const pad = (n) => String(n).padStart(2, '0');
+const stamp = (t) => { const d = new Date(t); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`; };
+const fmtTime = (t) => new Date(t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+const haptic = (ms) => { try { navigator.vibrate && navigator.vibrate(ms); } catch (e) {} };
+const otherEye = (e) => (e === 'OD' ? 'OS' : 'OD');
+const FIX_LABEL = { central: 'Central', macula: 'Macula', disc: 'Disc' };
+const PUPIL_LABEL = { non: 'Non-mydriatic', dil: 'Dilated' };
+
+let toastT;
+function toast(msg) {
+  const t = $('#toast');
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+/* ------------------------------------------------------------------ state */
+const SETTINGS_KEYS = ['auto', 'flash', 'fixation', 'source', 'sound', 'grid', 'assist'];
+const S = {
+  screen: 'home', connected: false, batt: 0,
+  eye: 'OD', pupil: 'non', pid: '', pname: '',
+  mode: 'IR', diopter: 0, refraction: { OD: -2.25, OS: -1.5 },
+  align: { x: 0, y: 0, z: 6 }, vel: { x: 0, y: 0, z: 0 }, approach: 6, off: { x: 0, y: 0 },
+  auto: true, flash: 70, fixation: 'central', source: 'sim', sound: true, grid: false, assist: true,
+  armed: true, readyAt: 0, lockUntil: 0, busy: false, af: null,
+  captures: store.get('fv.captures', []),
+};
+Object.assign(S, pick(store.get('fv.settings', {}), SETTINGS_KEYS));
+Object.assign(S, pick(store.get('fv.patient', {}), ['pid', 'pname', 'eye', 'pupil']));
+const saveSettings = () => store.set('fv.settings', pick(S, SETTINGS_KEYS));
+const savePatient = () => store.set('fv.patient', pick(S, ['pid', 'pname', 'eye', 'pupil']));
+
+function persistCaptures() {
+  if (store.set('fv.captures', S.captures)) return;
+  // Storage full: keep as many recent images as fit; the rest live for this session only.
+  const copy = S.captures.slice();
+  while (copy.length && !store.set('fv.captures', copy)) copy.pop();
+  toast('Storage full — older images kept for this session only');
+}
+
+/* ------------------------------------------------------------------ navigation */
+function show(id) {
+  if (id === 'capture' && !S.connected) id = 'home';
+  $$('.screen').forEach((s) => s.classList.toggle('active', s.id === id));
+  const prev = S.screen; S.screen = id;
+  if (id === 'capture') enterCapture(); else if (prev === 'capture') leaveCapture();
+  if (id === 'review') renderReview();
+  if (id === 'home') renderHome();
+}
+function go(id, replace) {
+  const d = (history.state && history.state.d) || 0;
+  history[replace ? 'replaceState' : 'pushState']({ id, d: replace ? d : d + 1 }, '', '#' + id);
+  show(id);
+}
+function back() { if (history.state && history.state.d > 0) history.back(); else go('home', true); }
+addEventListener('popstate', (e) => { closeViewer(); show((e.state && e.state.id) || 'home'); });
+
+function bindSeg(sel, cb) {
+  const el = $(sel);
+  const set = (v) => $$('button', el).forEach((b) => b.classList.toggle('on', b.dataset.v === String(v)));
+  el.addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; set(b.dataset.v); cb(b.dataset.v); });
+  return set;
+}
+
+/* ------------------------------------------------------------------ procedural retina */
+function rng(seed) {
+  return () => { seed |= 0; seed = (seed + 0x6d2b79f5) | 0; let t = Math.imul(seed ^ (seed >>> 15), 1 | seed); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+}
+const MMPX = 52;          // fundus texture px per mm of misalignment
+const FIELD = 0.62;       // fraction of texture radius visible in the 45° field
+const fundusCache = {};
+const getFundus = (eye) => fundusCache[eye] || (fundusCache[eye] = makeFundus(eye));
+
+function makeFundus(eye) {
+  const N = 1024, R = N / 2, cv = document.createElement('canvas');
+  cv.width = cv.height = N;
+  const g = cv.getContext('2d'), r = rng(eye === 'OD' ? 20417 : 73901), TAU = Math.PI * 2;
+  const t = eye === 'OD' ? -1 : 1; // temporal x-direction: OD shows the disc on the right
+  const disc = { x: R - t * R * 0.232, y: R - R * 0.02 }, mac = { x: R + t * R * 0.232, y: R + R * 0.03 }, dr = R * 0.092;
+
+  let gr = g.createRadialGradient(mac.x, mac.y, 0, R, R, R);
+  gr.addColorStop(0, '#8e2a0e'); gr.addColorStop(0.2, '#b5431a'); gr.addColorStop(0.55, '#cf5e24'); gr.addColorStop(0.8, '#bb4c1c'); gr.addColorStop(1, '#5a1a08');
+  g.fillStyle = gr; g.fillRect(0, 0, N, N);
+
+  for (let i = 0; i < 3000; i++) { // choroidal mottling
+    const x = r() * N, y = r() * N, s = 2 + r() * 10;
+    g.fillStyle = r() < 0.55 ? `rgba(255,150,80,${0.02 + r() * 0.03})` : `rgba(80,15,0,${0.02 + r() * 0.04})`;
+    g.beginPath(); g.ellipse(x, y, s, s * (0.4 + r() * 0.6), r() * Math.PI, 0, TAU); g.fill();
+  }
+
+  gr = g.createRadialGradient(mac.x, mac.y, 0, mac.x, mac.y, R * 0.18);
+  gr.addColorStop(0, 'rgba(55,8,0,.6)'); gr.addColorStop(0.35, 'rgba(70,12,0,.35)'); gr.addColorStop(1, 'rgba(70,12,0,0)');
+  g.fillStyle = gr; g.fillRect(0, 0, N, N);
+
+  gr = g.createRadialGradient(disc.x, disc.y, dr * 0.8, disc.x, disc.y, dr * 1.7);
+  gr.addColorStop(0, 'rgba(240,150,90,.5)'); gr.addColorStop(1, 'rgba(240,150,90,0)');
+  g.fillStyle = gr; g.fillRect(0, 0, N, N);
+  gr = g.createRadialGradient(disc.x, disc.y, 0, disc.x, disc.y, dr);
+  gr.addColorStop(0, '#ffe2a6'); gr.addColorStop(0.6, '#f6be76'); gr.addColorStop(0.9, '#e89456'); gr.addColorStop(1, 'rgba(220,120,60,0)');
+  g.fillStyle = gr; g.beginPath(); g.ellipse(disc.x, disc.y, dr * 0.92, dr, 0, 0, TAU); g.fill();
+
+  // vessel tree: random-walk branches that steer around the macula
+  const vessels = [];
+  function grow(x, y, a, w, len, curv, type, depth) {
+    const pts = [[x, y, w]]; let L = 0, nb = 60 + r() * 90;
+    while (L < len && w > 0.7) {
+      const dmx = x - mac.x, dmy = y - mac.y, dm = Math.hypot(dmx, dmy);
+      if (dm < R * 0.2) { const am = Math.atan2(dmy, dmx); a += Math.atan2(Math.sin(am - a), Math.cos(am - a)) * 0.12 * (1 - dm / (R * 0.2)); }
+      a += curv + (r() - 0.5) * 0.14;
+      x += Math.cos(a) * 4; y += Math.sin(a) * 4; L += 4; w *= 0.998;
+      pts.push([x, y, w]);
+      if (L > nb && depth < 3) {
+        nb = L + 70 + r() * 110;
+        const s = r() < 0.5 ? -1 : 1;
+        grow(x, y, a + s * (0.45 + r() * 0.55), w * (0.55 + r() * 0.15), (len - L) * (0.35 + r() * 0.35) + 30, (r() - 0.5) * 0.02, type, depth + 1);
+        w *= 0.9;
+      }
+      if (Math.hypot(x - R, y - R) > R * 1.02) break;
+    }
+    vessels.push({ pts, type });
+  }
+  const arcades = [ // [start angle, curvature, length, width scale]
+    [Math.atan2(-1, 0.3 * t), t * 0.0105, R * 1.25, 1],
+    [Math.atan2(1, 0.3 * t), -t * 0.0105, R * 1.25, 1],
+    [Math.atan2(-1, -0.8 * t), -t * 0.002, R * 0.75, 0.75],
+    [Math.atan2(1, -0.8 * t), t * 0.002, R * 0.75, 0.75],
+    [Math.atan2(-0.35, t), t * 0.004, R * 0.35, 0.4],
+    [Math.atan2(0.35, t), -t * 0.004, R * 0.35, 0.4],
+  ];
+  for (const [a, c, len, s] of arcades) {
+    const o = (r() - 0.5) * 0.15;
+    grow(disc.x + Math.cos(a) * dr * 0.2, disc.y + Math.sin(a) * dr * 0.2, a + 0.07 + o, 9 * s, len, c, 'v', 0);
+    grow(disc.x + Math.cos(a) * dr * 0.15, disc.y + Math.sin(a) * dr * 0.15, a - 0.07 + o, 6.5 * s, len * 0.97, c * 1.02, 'a', 0);
+  }
+  const stroke = (p, col, wm) => {
+    g.strokeStyle = col; g.lineCap = 'round'; g.lineJoin = 'round';
+    for (let i = 1; i < p.length; i++) { g.lineWidth = p[i][2] * wm; g.beginPath(); g.moveTo(p[i - 1][0], p[i - 1][1]); g.lineTo(p[i][0], p[i][1]); g.stroke(); }
+  };
+  for (const v of vessels) if (v.type === 'v') stroke(v.pts, '#761710', 1);
+  for (const v of vessels) if (v.type === 'a') stroke(v.pts, '#b8321a', 1);
+  for (const v of vessels) if (v.type === 'a') stroke(v.pts, 'rgba(255,170,130,.3)', 0.28);
+
+  // disc pallor over vessels + cup
+  gr = g.createRadialGradient(disc.x, disc.y, 0, disc.x, disc.y, dr);
+  gr.addColorStop(0, 'rgba(255,225,170,.55)'); gr.addColorStop(1, 'rgba(255,225,170,0)');
+  g.fillStyle = gr; g.fillRect(disc.x - dr, disc.y - dr, dr * 2, dr * 2);
+  gr = g.createRadialGradient(disc.x + t * dr * 0.12, disc.y, 0, disc.x + t * dr * 0.12, disc.y, dr * 0.42);
+  gr.addColorStop(0, 'rgba(255,248,225,.9)'); gr.addColorStop(1, 'rgba(255,240,210,0)');
+  g.fillStyle = gr; g.fillRect(disc.x - dr, disc.y - dr, dr * 2, dr * 2);
+
+  // foveal reflex
+  g.fillStyle = 'rgba(255,235,215,.55)'; g.beginPath(); g.arc(mac.x, mac.y, 2.6, 0, TAU); g.fill();
+  g.strokeStyle = 'rgba(255,215,190,.035)'; g.lineWidth = 6; g.beginPath(); g.ellipse(mac.x, mac.y, R * 0.13, R * 0.11, 0, 0, TAU); g.stroke();
+
+  gr = g.createRadialGradient(R, R, R * 0.7, R, R, R);
+  gr.addColorStop(0, 'rgba(20,4,0,0)'); gr.addColorStop(1, 'rgba(20,4,0,.85)');
+  g.fillStyle = gr; g.fillRect(0, 0, N, N);
+
+  return { canvas: cv, disc, mac, c: R };
+}
+
+const IRIS = (() => {
+  const N = 512, cv = document.createElement('canvas'); cv.width = cv.height = N;
+  const g = cv.getContext('2d'), r = rng(99), c = N / 2, TAU = Math.PI * 2;
+  let gr = g.createRadialGradient(c, c, N * 0.38, c, c, N * 0.5);
+  gr.addColorStop(0, '#b3a79d'); gr.addColorStop(0.6, '#6c625b'); gr.addColorStop(1, '#000');
+  g.fillStyle = gr; g.fillRect(0, 0, N, N);
+  gr = g.createRadialGradient(c, c, N * 0.13, c, c, N * 0.4);
+  gr.addColorStop(0, '#6a5442'); gr.addColorStop(1, '#382a20');
+  g.fillStyle = gr; g.beginPath(); g.arc(c, c, N * 0.4, 0, TAU); g.fill();
+  for (let i = 0; i < 700; i++) {
+    const a = r() * TAU, r0 = N * (0.13 + r() * 0.05), r1 = N * (0.3 + r() * 0.1);
+    g.strokeStyle = r() < 0.5 ? `rgba(190,160,120,${0.15 + r() * 0.25})` : `rgba(25,16,10,${0.15 + r() * 0.3})`;
+    g.lineWidth = 0.6 + r() * 1.6; g.beginPath();
+    g.moveTo(c + Math.cos(a) * r0, c + Math.sin(a) * r0);
+    g.quadraticCurveTo(c + Math.cos(a + 0.08) * (r0 + r1) / 2, c + Math.sin(a + 0.08) * (r0 + r1) / 2, c + Math.cos(a) * r1, c + Math.sin(a) * r1);
+    g.stroke();
+  }
+  g.strokeStyle = 'rgba(12,8,6,.85)'; g.lineWidth = N * 0.025; g.beginPath(); g.arc(c, c, N * 0.4, 0, TAU); g.stroke();
+  gr = g.createRadialGradient(c, c, 0, c, c, N * 0.155);
+  gr.addColorStop(0, '#2a0806'); gr.addColorStop(0.85, '#0a0202'); gr.addColorStop(1, 'rgba(10,2,2,0)');
+  g.fillStyle = gr; g.beginPath(); g.arc(c, c, N * 0.155, 0, TAU); g.fill();
+  return cv;
+})();
+
+const visOf = (z) => clamp(1 - (Math.abs(z) - 0.6) / 2.4, 0, 1);
+function fixPoint(eye, fix) {
+  const F = getFundus(eye);
+  return fix === 'macula' ? F.mac : fix === 'disc' ? F.disc : { x: F.c, y: F.c };
+}
+
+// Draws what the lens sees for a given alignment. x/y/z are misalignment in mm (z > 0 = too far).
+function renderView(g, W, o) {
+  const { x, y, z } = o.align, vis = visOf(z), c = W / 2, TAU = Math.PI * 2;
+  g.setTransform(1, 0, 0, 1, 0, 0); g.globalAlpha = 1; g.globalCompositeOperation = 'source-over';
+  g.fillStyle = '#000'; g.fillRect(0, 0, W, W);
+
+  if (vis > 0) {
+    const F = getFundus(o.eye), N = F.canvas.width, k = W / (FIELD * N), P = fixPoint(o.eye, o.fix);
+    g.globalAlpha = vis;
+    g.setTransform(k, 0, 0, k, c - (P.x - x * MMPX) * k, c - (P.y - y * MMPX) * k);
+    g.drawImage(F.canvas, 0, 0);
+    g.setTransform(1, 0, 0, 1, 0, 0);
+    g.globalAlpha = 1;
+    const e = Math.hypot(x, y);
+    if (e > 0.08) { // crescent shadow from decentred illumination
+      const ux = x / e, uy = y / e, gx = c + ux * W * 0.18, gy = c + uy * W * 0.18;
+      const gr = g.createRadialGradient(gx, gy, W * 0.28, gx, gy, W * 0.62);
+      gr.addColorStop(0, 'rgba(0,0,0,0)'); gr.addColorStop(1, `rgba(0,0,0,${Math.min(0.97, e * 0.55)})`);
+      g.fillStyle = gr; g.fillRect(0, 0, W, W);
+    }
+    const vg = g.createRadialGradient(c, c, W * 0.36, c, c, W * 0.5);
+    vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,.55)');
+    g.fillStyle = vg; g.fillRect(0, 0, W, W);
+  }
+
+  if (vis < 1) { // anterior segment while approaching
+    const far = clamp(z / 8, -1, 1), sc = z > 0 ? 1 - far * 0.55 : 1 - far * 0.4;
+    const d = W * 0.95 * sc, ax = c + x * W * 0.09, ay = c + y * W * 0.09;
+    g.globalAlpha = 1 - vis;
+    g.drawImage(IRIS, ax - d / 2, ay - d / 2, d, d);
+    g.fillStyle = '#fff';
+    for (const dx of [-0.05, 0.05]) { g.beginPath(); g.arc(ax + dx * d - x * W * 0.02, ay - 0.02 * d, W * 0.012 * sc, 0, TAU); g.fill(); }
+    g.globalAlpha = 1;
+  }
+
+  if (z < -0.6) { // corneal glare when too close
+    const a = clamp((-z - 0.6) / 2, 0, 0.85), gr = g.createRadialGradient(c, c, 0, c, c, W * 0.55);
+    gr.addColorStop(0, `rgba(255,250,240,${a})`); gr.addColorStop(1, `rgba(255,240,220,${a * 0.25})`);
+    g.fillStyle = gr; g.fillRect(0, 0, W, W);
+  }
+  const ring = clamp(1 - Math.abs(Math.abs(z) - 1.1) / 0.6, 0, 1) * 0.35;
+  if (ring > 0) {
+    g.strokeStyle = `rgba(255,245,230,${ring})`; g.lineWidth = W * 0.03;
+    g.beginPath(); g.arc(c + x * W * 0.03, c + y * W * 0.03, W * 0.34, 0, TAU); g.stroke();
+  }
+}
+
+/* ------------------------------------------------------------------ home */
+const pidEl = $('#pid'), pnameEl = $('#pname');
+pidEl.value = S.pid; pnameEl.value = S.pname;
+pidEl.addEventListener('input', () => { S.pid = pidEl.value.trim(); savePatient(); });
+pnameEl.addEventListener('input', () => { S.pname = pnameEl.value.trim(); savePatient(); });
+const setEyeSeg = bindSeg('#eyeSeg', (v) => { S.eye = v; savePatient(); });
+const setPupilSeg = bindSeg('#pupilSeg', (v) => { S.pupil = v; savePatient(); });
+setEyeSeg(S.eye); setPupilSeg(S.pupil);
+
+function renderDevice() {
+  const pill = $('#devPill'), on = S.connected;
+  pill.className = 'pill' + (on ? ' ok' : ''); pill.textContent = on ? 'Connected' : 'Disconnected';
+  $('#devArt').classList.toggle('on', on);
+  $('#spModel').textContent = on ? 'FV-20D clip-on' : '—';
+  $('#spOptics').textContent = on ? '20 D · 45° field' : '—';
+  $('#spLight').textContent = on ? 'IR 850 nm / 5600 K' : '—';
+  $('#spBatt').textContent = on ? S.batt + '%' : '—';
+  $('#spFw').textContent = on ? 'v1.4.2' : '—';
+  $('#btnConnect').textContent = on ? 'Disconnect' : 'Connect';
+  $('#btnConnect').classList.toggle('primary', !on);
+  $('#btnConnect').disabled = false;
+  $('#btnTestFlash').disabled = !on;
+  $('#btnStart').disabled = !on;
+  $('#startHint').textContent = on ? 'Mount the phone on the lens module and face the patient' : 'Connect the lens module to begin';
+  $('#capBatt').textContent = on ? S.batt + '%' : '—';
+}
+
+$('#btnConnect').addEventListener('click', async () => {
+  const btn = $('#btnConnect'), pill = $('#devPill');
+  if (S.connected) { S.connected = false; renderDevice(); toast('Lens module disconnected'); return; }
+  btn.disabled = true;
+  pill.className = 'pill busy'; pill.textContent = 'Scanning…';
+  await wait(1000);
+  pill.textContent = 'Pairing FV-20D…';
+  await wait(900);
+  S.connected = true; S.batt = 78 + Math.floor(Math.random() * 18);
+  renderDevice(); haptic(20); toast('Lens module connected');
+});
+$('#btnTestFlash').addEventListener('click', () => { fireFlash(); shutterSound(); });
+$('#btnStart').addEventListener('click', () => {
+  if (!S.pid) { S.pid = 'PT-' + String(Math.floor(1000 + Math.random() * 9000)); pidEl.value = S.pid; savePatient(); }
+  go('capture');
+});
+$('#homeGallery').addEventListener('click', () => go('review'));
+$('#openReview').addEventListener('click', () => go('review'));
+$('#homeSettings').addEventListener('click', openSheet);
+
+function renderHome() {
+  const od = S.captures.filter((s) => s.eye === 'OD').length, os = S.captures.length - od;
+  const qs = S.captures.map((s) => s.q).filter((q) => q != null);
+  $('#stOD').textContent = od; $('#stOS').textContent = os;
+  $('#stQ').textContent = qs.length ? Math.round(qs.reduce((a, b) => a + b, 0) / qs.length) : '—';
+  const rec = $('#recent'); rec.innerHTML = '';
+  S.captures.slice(0, 4).forEach((s) => {
+    const im = new Image(); im.src = s.img; im.alt = s.eye;
+    im.addEventListener('click', () => { go('review'); openViewer(s.id); });
+    rec.appendChild(im);
+  });
+  if (S.captures.length > 4) { const m = document.createElement('div'); m.className = 'more'; m.textContent = '+' + (S.captures.length - 4); rec.appendChild(m); }
+  if (!S.captures.length) rec.innerHTML = '<small style="color:var(--muted)">No images captured yet.</small>';
+  updateBadge();
+}
+function updateBadge() {
+  const b = $('#galBadge'); b.hidden = !S.captures.length; b.textContent = S.captures.length;
+}
+
+/* install prompt */
+let deferredPrompt = null;
+addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault(); deferredPrompt = e;
+  $('#installCard').hidden = false; $('#installBtn').hidden = false;
+});
+$('#installBtn').addEventListener('click', async () => {
+  if (!deferredPrompt) return;
+  deferredPrompt.prompt(); await deferredPrompt.userChoice.catch(() => {});
+  deferredPrompt = null; $('#installCard').hidden = true;
+});
+const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+if (/iphone|ipad|ipod/i.test(navigator.userAgent) && !standalone) {
+  $('#installCard').hidden = false;
+  $('#installText').textContent = 'For full-screen capture, tap Share → Add to Home Screen.';
+}
+
+/* ------------------------------------------------------------------ capture */
+const vp = $('#viewport'), cv = $('#view'), ctx = cv.getContext('2d'), video = $('#cam');
+const flashEl = $('#flash'), statusEl = $('#status'), shutter = $('#shutter'), shutProg = $('#shutProg');
+const SHUT_C = 2 * Math.PI * 37;
+let raf = 0, last = 0, lastFilter = '', lastStatus = '', wakeLock = null;
+
+function enterCapture() {
+  S.approach = 6;
+  S.off = { x: (Math.random() - 0.5) * 2.4, y: (Math.random() - 0.5) * 2.4 };
+  S.align = { x: S.off.x, y: S.off.y, z: 6 }; S.vel = { x: 0, y: 0, z: 0 };
+  S.readyAt = 0; S.armed = true; S.af = null;
+  hidePost(); updateCapHeader(); syncCaptureChips(); setDiopter(S.diopter); setThumb();
+  layout();
+  if (S.source === 'camera') startCamera(); else stopCamera();
+  if (!raf) { last = performance.now(); raf = requestAnimationFrame(loop); }
+  try { navigator.wakeLock && navigator.wakeLock.request('screen').then((l) => (wakeLock = l)).catch(() => {}); } catch (e) {}
+}
+function leaveCapture() {
+  cancelAnimationFrame(raf); raf = 0; stopCamera();
+  if (wakeLock) { wakeLock.release().catch(() => {}); wakeLock = null; }
+}
+function reapproach() {
+  S.approach = S.assist ? 4.5 : S.approach;
+  S.off = { x: (Math.random() - 0.5) * 2, y: (Math.random() - 0.5) * 2 };
+  S.readyAt = 0; S.armed = true;
+}
+
+function layout() {
+  const st = $('.stage');
+  if (!st.clientHeight) return;
+  const s = Math.floor(clamp(Math.min(st.clientWidth - 64, st.clientHeight - 96), 160, 560));
+  document.documentElement.style.setProperty('--vp', s + 'px');
+  const px = Math.round(s * Math.min(devicePixelRatio || 1, 2));
+  if (cv.width !== px) cv.width = cv.height = px;
+}
+addEventListener('resize', () => { if (S.screen === 'capture') layout(); });
+
+function updateCapHeader() {
+  $('#eyeChip').textContent = S.eye;
+  $('#capPid').textContent = (S.pid || '—') + (S.pname ? ' · ' + S.pname : '');
+  $('#capMeta').textContent = `${PUPIL_LABEL[S.pupil]} · Fixation ${FIX_LABEL[S.fixation]}`;
+  $('#pNext').textContent = 'Capture ' + otherEye(S.eye);
+}
+function syncCaptureChips() {
+  const mc = $('#modeChip');
+  mc.textContent = S.mode === 'IR' ? 'IR' : 'WHITE';
+  mc.classList.toggle('ir', S.mode === 'IR'); mc.classList.toggle('on', S.mode !== 'IR');
+  $('#tagTop').textContent = S.mode === 'IR' ? 'IR 850 nm' : 'WHITE 5600 K';
+  $('#tAuto').classList.toggle('on', S.auto);
+  $('#tAssist').classList.toggle('on', S.assist);
+  $('#tFix').textContent = 'Fixation · ' + FIX_LABEL[S.fixation];
+  $('#tFlash').textContent = 'Flash ' + S.flash + '%';
+  $('#rGrid').style.display = S.grid ? '' : 'none';
+}
+function setDiopter(v) {
+  S.diopter = v; $('#focus').value = v; $('#focusOut').textContent = fmtD(v);
+}
+function setThumb() {
+  const s = S.captures[0];
+  $('#lastThumb').style.backgroundImage = s ? `url(${s.img})` : '';
+}
+
+$('#capBack').addEventListener('click', back);
+$('#eyeChip').addEventListener('click', () => {
+  S.eye = otherEye(S.eye); savePatient(); setEyeSeg(S.eye); updateCapHeader(); reapproach(); hidePost();
+  toast(S.eye === 'OD' ? 'Right eye (OD)' : 'Left eye (OS)');
+});
+$('#modeChip').addEventListener('click', () => {
+  S.mode = S.mode === 'IR' ? 'WHITE' : 'IR'; syncCaptureChips();
+  if (S.source === 'camera') setTorch(S.mode === 'WHITE');
+});
+$('#focus').addEventListener('input', (e) => { S.af = null; $('#btnAF').classList.remove('on'); setDiopter(+e.target.value); });
+$('#btnAF').addEventListener('click', startAF);
+$('#tAuto').addEventListener('click', () => { S.auto = !S.auto; saveSettings(); syncCaptureChips(); syncSettingsUI(); });
+$('#tAssist').addEventListener('click', () => { S.assist = !S.assist; saveSettings(); syncCaptureChips(); syncSettingsUI(); });
+$('#tFix').addEventListener('click', () => {
+  const order = ['central', 'macula', 'disc'];
+  S.fixation = order[(order.indexOf(S.fixation) + 1) % order.length];
+  saveSettings(); syncCaptureChips(); updateCapHeader(); syncSettingsUI();
+});
+$('#tFlash').addEventListener('click', () => {
+  const steps = [40, 55, 70, 85, 100], i = steps.findIndex((v) => v > S.flash);
+  S.flash = i < 0 ? steps[0] : steps[i]; saveSettings(); syncCaptureChips(); syncSettingsUI();
+});
+$('#lastThumb').addEventListener('click', () => { if (S.captures.length) go('review'); });
+$('#capSettings').addEventListener('click', openSheet);
+shutter.addEventListener('click', () => capture('manual'));
+
+/* moving the phone: drag the view (x/y), drag the Z bar or scroll (working distance) */
+let drag = null;
+const vpSize = () => vp.clientWidth || 300;
+vp.addEventListener('pointerdown', (e) => {
+  vp.setPointerCapture(e.pointerId);
+  drag = { x: e.clientX, y: e.clientY, ox: S.off.x, oy: S.off.y };
+});
+vp.addEventListener('pointermove', (e) => {
+  if (!drag) return;
+  const mmPx = vpSize() * 0.09;
+  S.off.x = clamp(drag.ox + (e.clientX - drag.x) / mmPx, -4, 4);
+  S.off.y = clamp(drag.oy + (e.clientY - drag.y) / mmPx, -4, 4);
+});
+['pointerup', 'pointercancel'].forEach((ev) => vp.addEventListener(ev, () => { drag = null; }));
+vp.addEventListener('wheel', (e) => { e.preventDefault(); S.approach = clamp(S.approach + e.deltaY * 0.01, -4, 8); }, { passive: false });
+const zcol = $('#zcol');
+let zdrag = false;
+const zFromPointer = (e) => {
+  const b = $('.zbar', zcol).getBoundingClientRect();
+  S.approach = clamp((0.5 - (e.clientY - b.top) / b.height) * 8, -4, 4);
+};
+zcol.addEventListener('pointerdown', (e) => { zdrag = true; zcol.setPointerCapture(e.pointerId); zFromPointer(e); });
+zcol.addEventListener('pointermove', (e) => { if (zdrag) zFromPointer(e); });
+['pointerup', 'pointercancel'].forEach((ev) => zcol.addEventListener(ev, () => { zdrag = false; }));
+
+function loop(now) {
+  raf = requestAnimationFrame(loop);
+  const dt = Math.min(0.05, (now - last) / 1000); last = now;
+  simulate(dt, now / 1000);
+  stepAF(now);
+  if (S.source !== 'camera') drawLive();
+  updateHUD(now);
+}
+
+// Hand-held phone model: spring toward the operator's target plus physiological tremor.
+function simulate(dt, t) {
+  const A = S.align, V = S.vel;
+  if (S.assist && !zdrag) {
+    const rate = Math.abs(S.approach) > 2 ? 2.2 : 1.1;
+    S.approach -= Math.sign(S.approach) * Math.min(Math.abs(S.approach), rate * dt);
+    if (!drag) { const d = Math.exp(-dt * 0.7); S.off.x *= d; S.off.y *= d; }
+  }
+  const tr = S.assist ? 0.06 : 0.14;
+  const T = {
+    x: S.off.x + tr * (Math.sin(t * 1.7) + 0.6 * Math.sin(t * 3.1 + 1.3) + 0.35 * Math.sin(t * 6.3 + 0.4)),
+    y: S.off.y + tr * (Math.sin(t * 1.3 + 2) + 0.6 * Math.sin(t * 2.7 + 0.2) + 0.35 * Math.sin(t * 5.9 + 1.1)),
+    z: S.approach + (S.assist ? 0.18 : 0.35) * (Math.sin(t * 0.9) + 0.5 * Math.sin(t * 2.2 + 0.7)),
+  };
+  for (const k of ['x', 'y', 'z']) { V[k] += ((T[k] - A[k]) * 20 - V[k] * 8) * dt; A[k] += V[k] * dt; }
+}
+
+function drawLive() {
+  renderView(ctx, cv.width, { eye: S.eye, align: S.align, fix: S.fixation });
+  const fe = Math.abs(S.diopter - S.refraction[S.eye]), vis = visOf(S.align.z);
+  const blur = (Math.min(9, fe * 1.5) * vis + (1 - vis) * 1.5) * (vpSize() / 360);
+  const f = (S.mode === 'IR' ? 'grayscale(1) contrast(1.15) brightness(1.05) ' : '') + `blur(${blur.toFixed(1)}px)`;
+  if (f !== lastFilter) { cv.style.filter = f; lastFilter = f; }
+}
+
+function guidance() {
+  const { x, y, z } = S.align, e = Math.hypot(x, y), fe = Math.abs(S.diopter - S.refraction[S.eye]);
+  if (z > 1.2) return ['far', 'Move closer to the eye', 'warn'];
+  if (z < -1.2) return ['near', 'Too close — pull back', 'bad'];
+  if (e > 0.35) {
+    const dir = Math.abs(x) > Math.abs(y) ? (x > 0 ? '→' : '←') : (y > 0 ? '↓' : '↑');
+    return ['xy', 'Centre on pupil  ' + dir, 'warn'];
+  }
+  if (Math.abs(z) > 0.5) return ['z', z > 0 ? 'Slightly closer' : 'Slightly back', 'warn'];
+  if (fe > 0.75) return ['focus', 'Adjust focus  (tap AF)', 'warn'];
+  return ['ready', 'Aligned — hold steady', 'ok'];
+}
+
+function setStatus(msg, cls) {
+  const key = cls + msg;
+  if (key === lastStatus) return;
+  lastStatus = key; statusEl.className = 'status ' + cls; $('span', statusEl).textContent = msg;
+}
+
+function updateHUD(now) {
+  const A = S.align, cam = S.source === 'camera';
+  let [key, msg, cls] = cam ? ['cam', 'Live camera · align manually', 'info'] : guidance();
+  const locked = now < S.lockUntil, ready = key === 'ready' || cam;
+  if (S.busy) { msg = 'Capturing…'; cls = 'info'; }
+  else if (locked) { msg = `Pupil recovery · ${Math.ceil((S.lockUntil - now) / 1000)} s`; cls = 'info'; }
+  setStatus(msg, cls);
+
+  const e = Math.hypot(A.x, A.y);
+  const dot = $('#rDot');
+  dot.setAttribute('cx', clamp(A.x * 25, -88, 88).toFixed(1));
+  dot.setAttribute('cy', clamp(A.y * 25, -88, 88).toFixed(1));
+  dot.setAttribute('fill', cam ? 'transparent' : e < 0.35 ? '#34d399' : '#fbbf24');
+  const zm = $('#zmark');
+  zm.style.top = (clamp(0.5 - A.z / 8, 0.02, 0.98) * 100).toFixed(1) + '%';
+  zm.classList.toggle('ok', Math.abs(A.z) < 0.5);
+  $('#roX').textContent = cam ? '—' : fmtMM(A.x);
+  $('#roY').textContent = cam ? '—' : fmtMM(A.y);
+  $('#roZ').textContent = cam ? '—' : (22 + A.z).toFixed(1) + 'mm';
+  $('#roF').textContent = cam ? '—' : fmtD(S.diopter - S.refraction[S.eye]);
+
+  const shootable = ready && !locked && !S.busy;
+  vp.classList.toggle('ready', key === 'ready' && !locked);
+  shutter.classList.toggle('ready', shootable && !cam);
+  shutter.classList.toggle('locked', locked || S.busy);
+
+  // auto capture after the eye holds alignment for a moment
+  let p = 0;
+  if (!cam && key === 'ready' && S.auto && S.armed && shootable) {
+    if (!S.readyAt) S.readyAt = now;
+    p = clamp((now - S.readyAt) / 900, 0, 1);
+    if (p >= 1) capture('auto');
+  } else S.readyAt = 0;
+  shutProg.setAttribute('stroke-dashoffset', (SHUT_C * (1 - p)).toFixed(1));
+}
+
+function startAF() {
+  if (S.source === 'camera') { toast('Autofocus is handled by the camera'); return; }
+  const tgt = S.refraction[S.eye], from = S.diopter, s = Math.sign(tgt - from) || 1;
+  S.af = { t0: performance.now(), dur: 1100, pts: [from, tgt + 1.5 * s, tgt - 0.6 * s, tgt + 0.2 * s, tgt] };
+  $('#btnAF').classList.add('on');
+}
+function stepAF(now) {
+  if (!S.af) return;
+  const { t0, dur, pts } = S.af, p = clamp((now - t0) / dur, 0, 1), n = pts.length - 1;
+  const f = p * n, i = Math.min(n - 1, Math.floor(f)), u = f - i, e = u * u * (3 - 2 * u);
+  setDiopter(lerp(pts[i], pts[i + 1], e));
+  if (p >= 1) { S.af = null; setDiopter(pts[n]); $('#btnAF').classList.remove('on'); }
+}
+
+/* capture pipeline */
+const FILTER_OK = (() => { const g = document.createElement('canvas').getContext('2d'); g.filter = 'blur(1px)'; return g.filter === 'blur(1px)'; })();
+function fireFlash() { flashEl.classList.remove('go'); void flashEl.offsetWidth; flashEl.classList.add('go'); }
+
+async function capture(trigger) {
+  if (S.busy || performance.now() < S.lockUntil) return;
+  if (S.source !== 'camera' && trigger === 'manual' && S.align.z > 2.5) { toast('Eye not in view — move closer'); return; }
+  S.busy = true; S.readyAt = 0;
+  const snap = { align: { ...S.align }, D: S.diopter, eye: S.eye, fix: S.fixation, flash: S.flash };
+  if (S.source === 'camera') await setTorch(true);
+  fireFlash(); shutterSound(); haptic(35);
+  await wait(70);
+  let img, q = null;
+  if (S.source === 'camera') { img = grabVideo(snap); await setTorch(S.mode === 'WHITE'); }
+  else { img = renderCapture(snap); q = quality(snap); }
+  const shot = {
+    id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+    pid: S.pid || '—', name: S.pname, eye: snap.eye, t: Date.now(), D: +snap.D.toFixed(2),
+    flash: snap.flash, fix: snap.fix, pupil: S.pupil, src: S.source, trigger, q, img,
+  };
+  S.captures.unshift(shot); persistCaptures();
+  S.lockUntil = performance.now() + (S.pupil === 'dil' ? 1500 : 5000);
+  S.armed = false; S.busy = false;
+  setThumb(); updateBadge(); showPost(shot);
+}
+
+function blurInto(g, src, W, px) {
+  if (px < 0.3) { g.drawImage(src, 0, 0); return; }
+  if (FILTER_OK) { g.filter = `blur(${px}px)`; g.drawImage(src, 0, 0); g.filter = 'none'; return; }
+  const s = Math.max(16, Math.round(W / (1 + px / 2))), t = document.createElement('canvas');
+  t.width = t.height = s; t.getContext('2d').drawImage(src, 0, 0, s, s);
+  g.imageSmoothingQuality = 'high'; g.drawImage(t, 0, 0, W, W);
+}
+
+function finishFrame(g, W, s) {
+  g.globalCompositeOperation = 'destination-in';
+  g.beginPath(); g.arc(W / 2, W / 2, W / 2 - 6, 0, Math.PI * 2); g.fill();
+  g.globalCompositeOperation = 'destination-over'; g.fillStyle = '#000'; g.fillRect(0, 0, W, W);
+  g.globalCompositeOperation = 'source-over';
+  const fs = Math.round(W * 0.032);
+  g.fillStyle = 'rgba(255,255,255,.88)'; g.textBaseline = 'alphabetic';
+  g.font = `700 ${Math.round(fs * 1.6)}px system-ui,-apple-system,sans-serif`; g.textAlign = 'left';
+  g.fillText(s.eye, fs, fs * 2.2);
+  g.font = `500 ${fs}px ui-monospace,Menlo,Consolas,monospace`;
+  g.fillText(stamp(Date.now()), fs, W - fs);
+  g.textAlign = 'right';
+  g.fillText(S.pid || '—', W - fs, fs * 1.9);
+  g.fillText(`45° · ${fmtD(s.D)} · F${s.flash}`, W - fs, W - fs);
+}
+
+function renderCapture(s) {
+  const W = 1024, tmp = document.createElement('canvas'), out = document.createElement('canvas');
+  tmp.width = tmp.height = out.width = out.height = W;
+  renderView(tmp.getContext('2d'), W, { eye: s.eye, align: s.align, fix: s.fix });
+  const g = out.getContext('2d');
+  g.fillStyle = '#000'; g.fillRect(0, 0, W, W);
+  const fe = Math.abs(s.D - S.refraction[s.eye]);
+  blurInto(g, tmp, W, Math.min(9, fe * 1.5) * visOf(s.align.z) * (W / 360));
+  const ex = (s.flash - 70) / 100; // exposure relative to nominal flash
+  if (ex < 0) { g.fillStyle = `rgba(0,0,0,${Math.min(0.85, -ex * 1.6)})`; g.fillRect(0, 0, W, W); }
+  else if (ex > 0) { g.globalCompositeOperation = 'lighter'; g.fillStyle = `rgba(255,190,150,${ex * 0.55})`; g.fillRect(0, 0, W, W); g.globalCompositeOperation = 'source-over'; }
+  finishFrame(g, W, s);
+  return out.toDataURL('image/jpeg', 0.86);
+}
+
+function grabVideo(s) {
+  const W = 1024, out = document.createElement('canvas'); out.width = out.height = W;
+  const g = out.getContext('2d'), vw = video.videoWidth || W, vh = video.videoHeight || W, m = Math.min(vw, vh);
+  g.fillStyle = '#000'; g.fillRect(0, 0, W, W);
+  try { g.drawImage(video, (vw - m) / 2, (vh - m) / 2, m, m, 0, 0, W, W); } catch (e) {}
+  finishFrame(g, W, s);
+  return out.toDataURL('image/jpeg', 0.9);
+}
+
+function quality(s) {
+  const fe = Math.abs(s.D - S.refraction[s.eye]), e = Math.hypot(s.align.x, s.align.y), z = Math.abs(s.align.z);
+  const q = 98 - fe * 16 - Math.max(0, e - 0.1) * 45 - Math.max(0, z - 0.2) * 18 - Math.abs(s.flash - 70) * 0.35;
+  return Math.round(clamp(q, 3, 99));
+}
+const qClass = (q) => (q == null ? 'na' : q >= 80 ? 'good' : q >= 55 ? 'fair' : 'poor');
+const qLabel = (q) => (q == null ? 'Ungraded' : q >= 80 ? 'Good' : q >= 55 ? 'Fair' : 'Poor');
+
+function showPost(s) {
+  $('#postImg').src = s.img;
+  $('#postTitle').textContent = `Captured · ${s.eye}`;
+  $('#postMeta').textContent = s.q == null ? 'Camera frame · ungraded' : `Quality ${s.q} · ${qLabel(s.q)}${s.q < 55 ? ' — consider retaking' : ''}`;
+  $('#post').classList.add('show');
+}
+function hidePost() { $('#post').classList.remove('show'); }
+$('#pRetake').addEventListener('click', () => {
+  S.captures.shift(); persistCaptures(); setThumb(); updateBadge();
+  hidePost(); reapproach();
+});
+$('#pNext').addEventListener('click', () => {
+  S.eye = otherEye(S.eye); savePatient(); setEyeSeg(S.eye); updateCapHeader(); hidePost(); reapproach();
+});
+$('#pReview').addEventListener('click', () => { hidePost(); go('review'); });
+
+let AC = null;
+function shutterSound() {
+  if (!S.sound) return;
+  try {
+    AC = AC || new (window.AudioContext || window.webkitAudioContext)();
+    const n = Math.floor(AC.sampleRate * 0.09), b = AC.createBuffer(1, n, AC.sampleRate), d = b.getChannelData(0);
+    for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / n, 3);
+    const src = AC.createBufferSource(), f = AC.createBiquadFilter(), gn = AC.createGain();
+    src.buffer = b; f.type = 'highpass'; f.frequency.value = 1200; gn.gain.value = 0.45;
+    src.connect(f).connect(gn).connect(AC.destination); src.start();
+  } catch (e) {}
+}
+
+/* real camera source */
+let stream = null, torchOK = false;
+async function startCamera() {
+  vp.classList.add('cam');
+  if (stream) return;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: false });
+    if (S.screen !== 'capture' || S.source !== 'camera') { stopCamera(); return; }
+    video.srcObject = stream; await video.play().catch(() => {});
+    const tr = stream.getVideoTracks()[0], cap = tr.getCapabilities ? tr.getCapabilities() : {};
+    torchOK = !!cap.torch;
+    if (S.mode === 'WHITE') setTorch(true);
+  } catch (e) {
+    toast('Camera unavailable — using simulation');
+    S.source = 'sim'; saveSettings(); syncSettingsUI(); stopCamera();
+  }
+}
+function stopCamera() {
+  vp.classList.remove('cam');
+  if (stream) { stream.getTracks().forEach((t) => t.stop()); stream = null; }
+  video.srcObject = null; torchOK = false;
+}
+async function setTorch(on) {
+  if (!stream || !torchOK) return;
+  try { await stream.getVideoTracks()[0].applyConstraints({ advanced: [{ torch: on }] }); } catch (e) {}
+}
+
+/* ------------------------------------------------------------------ review */
+let revFilter = 'all';
+const setRevTabs = bindSeg('#revTabs', (v) => { revFilter = v; renderReview(); });
+setRevTabs(revFilter);
+$('#revBack').addEventListener('click', back);
+
+function renderReview() {
+  const list = S.captures.filter((s) => revFilter === 'all' || s.eye === revFilter);
+  $('#revSub').textContent = `${S.captures.length} image${S.captures.length === 1 ? '' : 's'}`;
+  const grid = $('#grid'); grid.innerHTML = '';
+  $('#empty').hidden = list.length > 0;
+  for (const s of list) {
+    const b = document.createElement('button'); b.className = 'shot';
+    b.innerHTML = `<img alt=""><div class="meta"><span>${s.eye} · ${fmtTime(s.t)}</span><span class="q ${qClass(s.q)}">${s.q == null ? '—' : 'Q' + s.q}</span></div><small></small>`;
+    $('img', b).src = s.img;
+    $('small', b).textContent = s.pid + (s.name ? ' · ' + s.name : '');
+    b.addEventListener('click', () => openViewer(s.id));
+    grid.appendChild(b);
+  }
+}
+
+const viewer = $('#viewer'), vCanvas = $('#vCanvas'), vImg = new Image();
+let vShot = null, vMode = 'color';
+const setVF = bindSeg('#vFilter', (v) => { vMode = v; drawViewer(); });
+vImg.onload = drawViewer;
+function openViewer(id) {
+  vShot = S.captures.find((s) => s.id === id);
+  if (!vShot) return;
+  $('#vTitle').textContent = `${vShot.eye} · ${vShot.pid}`;
+  $('#vSub').textContent = stamp(vShot.t);
+  const rows = [
+    ['Quality', vShot.q == null ? 'Ungraded' : `${vShot.q} · ${qLabel(vShot.q)}`],
+    ['Focus', fmtD(vShot.D)], ['Flash', vShot.flash + '%'],
+    ['Fixation', FIX_LABEL[vShot.fix]], ['Pupil', PUPIL_LABEL[vShot.pupil] || '—'],
+    ['Source', vShot.src === 'camera' ? 'Phone camera' : 'Simulated'], ['Trigger', vShot.trigger === 'auto' ? 'Auto' : 'Manual'],
+  ];
+  const dl = $('#vSpecs'); dl.innerHTML = '';
+  for (const [k, v] of rows) { const dt = document.createElement('dt'), dd = document.createElement('dd'); dt.textContent = k; dd.textContent = v; dl.append(dt, dd); }
+  vMode = 'color'; setVF('color'); vCanvas.classList.remove('zoom');
+  vImg.src = vShot.img;
+  viewer.classList.add('show');
+}
+function closeViewer() { viewer.classList.remove('show'); vShot = null; }
+function drawViewer() {
+  if (!vShot || !vImg.complete) return;
+  const g = vCanvas.getContext('2d'), W = vCanvas.width;
+  g.drawImage(vImg, 0, 0, W, W);
+  if (vMode === 'color') return;
+  const d = g.getImageData(0, 0, W, W), p = d.data;
+  for (let i = 0; i < p.length; i += 4) {
+    if (vMode === 'redfree') { const v = clamp((p[i + 1] - 25) * 1.9, 0, 255); p[i] = v * 0.92; p[i + 1] = v; p[i + 2] = v * 0.92; }
+    else for (let k = 0; k < 3; k++) p[i + k] = clamp((p[i + k] - 95) * 1.45 + 110, 0, 255);
+  }
+  g.putImageData(d, 0, 0);
+}
+vCanvas.addEventListener('dblclick', (e) => {
+  const r = vCanvas.getBoundingClientRect();
+  vCanvas.style.transformOrigin = `${((e.clientX - r.left) / r.width) * 100}% ${((e.clientY - r.top) / r.height) * 100}%`;
+  vCanvas.classList.toggle('zoom');
+});
+$('#vClose').addEventListener('click', closeViewer);
+$('#vDel').addEventListener('click', () => {
+  if (!vShot || !confirm('Delete this image?')) return;
+  S.captures = S.captures.filter((s) => s.id !== vShot.id); persistCaptures();
+  closeViewer(); renderReview(); updateBadge(); setThumb();
+});
+$('#vShare').addEventListener('click', async () => {
+  if (!vShot) return;
+  const blob = await (await fetch(vShot.img)).blob();
+  const name = `${vShot.eye}_${String(vShot.pid).replace(/\W+/g, '-')}_${stamp(vShot.t).replace(/\D/g, '')}.jpg`;
+  const file = new File([blob], name, { type: 'image/jpeg' });
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    try { await navigator.share({ files: [file], title: name }); } catch (e) {}
+    return;
+  }
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+});
+
+/* ------------------------------------------------------------------ settings sheet */
+const sheet = $('#sheet'), scrim = $('#scrim');
+function openSheet() { syncSettingsUI(); sheet.classList.add('show'); scrim.classList.add('show'); }
+function closeSheet() { sheet.classList.remove('show'); scrim.classList.remove('show'); }
+scrim.addEventListener('click', closeSheet);
+$('#sheetDone').addEventListener('click', closeSheet);
+
+const setSourceSeg = bindSeg('#setSource', (v) => {
+  S.source = v; saveSettings();
+  if (S.screen === 'capture') { if (v === 'camera') startCamera(); else stopCamera(); }
+});
+const setFixSeg = bindSeg('#setFix', (v) => { S.fixation = v; saveSettings(); syncCaptureChips(); updateCapHeader(); });
+const switches = { setAssist: 'assist', setAuto: 'auto', setGrid: 'grid', setSound: 'sound' };
+for (const [id, key] of Object.entries(switches)) {
+  $('#' + id).addEventListener('click', () => { S[key] = !S[key]; saveSettings(); syncSettingsUI(); syncCaptureChips(); });
+}
+$('#setFlash').addEventListener('input', (e) => { S.flash = +e.target.value; saveSettings(); syncSettingsUI(); syncCaptureChips(); });
+$('#setClear').addEventListener('click', () => {
+  if (!S.captures.length || !confirm(`Delete all ${S.captures.length} captured images?`)) return;
+  S.captures = []; persistCaptures(); syncSettingsUI(); setThumb(); updateBadge();
+  if (S.screen === 'review') renderReview(); if (S.screen === 'home') renderHome();
+});
+function syncSettingsUI() {
+  setSourceSeg(S.source); setFixSeg(S.fixation);
+  for (const [id, key] of Object.entries(switches)) $('#' + id).setAttribute('aria-pressed', String(!!S[key]));
+  $('#setFlash').value = S.flash; $('#setFlashOut').textContent = S.flash + '%';
+  const kb = Math.round(S.captures.reduce((a, s) => a + s.img.length, 0) * 0.75 / 1024);
+  $('#storeInfo').textContent = `${S.captures.length} image${S.captures.length === 1 ? '' : 's'} · ${kb > 1024 ? (kb / 1024).toFixed(1) + ' MB' : kb + ' KB'}`;
+}
+
+/* ------------------------------------------------------------------ boot */
+renderDevice(); renderHome(); syncSettingsUI(); syncCaptureChips();
+history.replaceState({ id: 'home', d: 0 }, '', '#home');
+// Pre-build the retina textures off the critical path.
+(window.requestIdleCallback || ((f) => setTimeout(f, 300)))(() => { getFundus(S.eye); getFundus(otherEye(S.eye)); });
+
+if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+  addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+}
+})();
+</script>
+</body>
+</html>
